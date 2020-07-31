@@ -1,6 +1,7 @@
 package mirrorfs
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -299,8 +300,13 @@ func (d *dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 		"response":  resp,
 	})
 
-	f, err := os.OpenFile(
+	fullpath := filepath.Join(
+		d.path,
 		req.Name,
+	)
+
+	f, err := os.OpenFile(
+		fullpath,
 		int(req.Flags),
 		req.Mode,
 	)
@@ -318,7 +324,7 @@ func (d *dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 		"error":     nil,
 	})
 
-	file := d.FileFactory().NewFile(req.Name)
+	file := d.FileFactory().NewFile(fullpath)
 
 	lgrEnd(d, file, file, nil)
 
@@ -405,80 +411,56 @@ func (d *dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error
 	return node, nil
 }
 
-//
-// XXX Should we handle Rename ???
-// If yes, how do we treat the files - as new or just the old ones?
-// Just the old ones is not good. Cannot get from remote as names changed and
-// we are not keeping track of remote names separately. We might, if we need this functionality
-//
-/* COMMENTED OUT FOR NOW!!
-func (d *DIR) Rename(ctx context.Context, req *fuse.RenameRequest, newDir fs.Node) error {
-	var oldPrefix, newPrefix string
-	nd, ok := newDir.(*DIR)
+func (d *dir) Rename(ctx context.Context, req *fuse.RenameRequest, node fs.Node) error {
+	lgr := loggerWith(map[string]interface{}{
+		"Receiver": "dir",
+		"Func":     "Rename",
+	})
+	lgr.Debug("start", []interface{}{
+		d,
+		ctx,
+		req,
+	})
+	lgrEnd := func(data ...interface{}) {
+		lgr.Debug("end", data)
+	}
+
+	d.Handle("Rename:start", map[string]interface{}{
+		"directory": d,
+		"context":   ctx,
+		"request":   req,
+	})
+
+	newDir, ok := node.(*dir)
 	if !ok {
-		log.WithFields(log.Fields{"newDir": newDir}).Error("Rename: New Dir is not a DIR")
-		return syscall.EINVAL	// Should we fix fuse.error ???
-	}
-	if d.Entry.Prefix != "" {
-		oldPrefix = d.Entry.Prefix + "/" + d.Entry.Name
-	} else {
-		oldPrefix = d.Entry.Name
-	}
-	if nd.Entry.Prefix != "" {
-		newPrefix = nd.Entry.Prefix + "/" + nd.Entry.Name
-	} else {
-		newPrefix = nd.Entry.Name
-	}
-	log.WithFields(log.Fields{"Dir": d, "newDir": nd, "Request": req,
-			  "Old Prefix": oldPrefix, "New Prefix": newPrefix,
-		}).Error("Rename request")
-	//XXX
-	//XXX Do the locking properly, when we do support rename
-	d.RData.lock.Lock()
-	foundDir := false
-	idx := -1
-	for i, ent := range d.RData.Meta.Entries {
-		if ent.Prefix == oldPrefix && ent.Name == req.OldName {
-			if ent.IsDir == false {
-				d.RData.Meta.Entries[i].Prefix = newPrefix
-				d.RData.Meta.Entries[i].Name = req.NewName
-				d.Entry = d.RData.Meta.Entries[i]
-				d.RData.lock.Unlock()
-				//XXX We are not verifying the New Dir to be part of Meta.Entries now..
-				//XXX Is it even possible? I guess not as it will be lookuped up before
-				//XXX this is called...
-				if err := saveMeta(d.Acc, d.RData); err != nil {
-					log.Error("Rename file: cannot save Meta")
-					return err
-				}
-				return nil
-			} else {
-				foundDir = true
-				idx = i
-				break
-			}
-		}
-	}
-	if !foundDir {
-		d.RData.lock.Unlock()
-		return syscall.ENOENT
-	}
-	// Rename a dir
-	d.RData.Meta.Entries[idx].Prefix = newPrefix
-	d.RData.Meta.Entries[idx].Name = req.NewName
-	d.Entry = d.RData.Meta.Entries[idx]
-	oldPrefix = oldPrefix + "/" + req.OldName
-	newPrefix = newPrefix + "/" + req.NewName
-	for i, e2 := range d.RData.Meta.Entries {
-		if e2.Prefix == oldPrefix {
-			d.RData.Meta.Entries[i].Prefix = newPrefix
-		}
-	}
-	d.RData.lock.Unlock()
-	if err := saveMeta(d.Acc, d.RData); err != nil {
-		log.Error("Rename dir: cannot save Meta")
+		err := errors.New("unexpected node type")
+		d.Handle("Rename:end", map[string]interface{}{
+			"directory": d,
+			"error":     err,
+		})
+		lgrEnd(d, err)
+
 		return err
 	}
+
+	oldPath := filepath.Join(d.path, req.OldName)
+	newPath := filepath.Join(newDir.path, req.NewName)
+
+	if err := os.Rename(oldPath, newPath); err != nil {
+		d.Handle("Rename:end", map[string]interface{}{
+			"directory": d,
+			"error":     err,
+		})
+		lgrEnd(d, err)
+
+		return err
+	}
+
+	d.Handle("Rename:end", map[string]interface{}{
+		"directory": d,
+		"error":     nil,
+	})
+	lgrEnd(d, nil)
+
 	return nil
 }
-*/

@@ -112,6 +112,27 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 	return nil
 }
 
+/*
+// Open opens the file for reading.
+func (f *File) Open(
+	ctx context.Context,
+	req *fuse.OpenRequest,
+	resp *fuse.OpenResponse,
+) (fs.Handle,error) {
+
+
+	fsHandler, err := os.OpenFile(f.path, int(req.Flags), f.attr.Mode)
+	if err != nil {
+
+		return nil, err
+	}
+	f.handler = fsHandler
+
+
+	return f, nil
+}
+*/
+
 // ReadAll reads the contents of the current file receiver.
 func (f *file) ReadAll(ctx context.Context) ([]byte, error) {
 	lgr := loggerWith(map[string]interface{}{
@@ -171,13 +192,13 @@ func (f *file) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 		return err
 	}
 
-	file, err := os.OpenFile(f.path, os.O_WRONLY, fInfo.Mode())
+	file, err := os.OpenFile(f.path, int(req.Flags)|os.O_WRONLY, fInfo.Mode())
 	if err != nil {
 		lgrEnd(f, err)
 		return err
 	}
 
-	bytesWritten, err := file.Write(req.Data)
+	bytesWritten, err := file.WriteAt(req.Data, req.Offset)
 	if err != nil {
 		lgrEnd(f, err)
 		return err
@@ -186,14 +207,14 @@ func (f *file) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.Wri
 		return err
 	}
 
-	resp.Size = int(fInfo.Size()) + bytesWritten
+	resp.Size = int(req.Offset) + bytesWritten
 
 	f.Handle("Write:end", map[string]interface{}{
 		"file":  f,
 		"error": err,
 	})
 
-	lgrEnd(f, err)
-	return err
+	lgrEnd(f, nil)
+	return nil
 
 }

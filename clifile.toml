@@ -26,3 +26,10 @@ type = "string"
 name = "logLevel"
 aliases = [ "ll" ]
 description = "Logging level"
+
+[[command.flags]]
+# We need to support StringSliceFlags
+type = "string"
+name = "listenEvents"
+aliases = [ "le" ]
+description = "Events to listen for"
