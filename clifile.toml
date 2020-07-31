@@ -1,0 +1,28 @@
+[general]
+name = "mirrorfs"
+description = "Tool for mirroring a filesystem"
+generator = "github.com/urfave/cli"
+
+[[command]]
+name = "run"
+aliases = [ "r" ]
+description = "Run a mirrored mount"
+action = "mirrorFunc"
+
+[[command.flags]]
+type = "string"
+name = "mount"
+aliases = [ "mnt" ]
+description = "Name for volume to mount"
+
+[[command.flags]]
+type = "string"
+name = "mirror"
+aliases = [ "mirr" ]
+description = "Path to directory to mirror"
+
+[[command.flags]]
+type = "string"
+name = "logLevel"
+aliases = [ "ll" ]
+description = "Logging level"
