@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/kr/pretty"
 	cli "github.com/urfave/cli/v2"
@@ -44,10 +45,15 @@ func mirrorFunc(c *cli.Context) error {
 
 	mirrFS := mirrorfs.NewMirrorFS(
 		mirror,
-	).WithHook("*", func(data interface{}) {
-		fmt.Println("-----[running hook]-----")
-		pretty.Println(data)
-	})
+	)
+
+	listenEvents := c.String("listenEvents")
+	for _, event := range strings.Split(listenEvents, ",") {
+		mirrFS.WithHook(event, func(data interface{}) {
+			fmt.Println("-----[running hook]-----")
+			pretty.Println(data)
+		})
+	}
 
 	err = fs.Serve(conn, mirrFS)
 	if err != nil {

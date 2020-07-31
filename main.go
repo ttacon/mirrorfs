@@ -18,9 +18,9 @@ func main() {
 
 	app.Commands = []*cli.Command{
 		&cli.Command{
-			Description: "Run a mirrored mount",
 			Name:        "run",
 			Action:      mirrorFunc,
+			Description: "Run a mirrored mount",
 			Aliases:     []string{"r"},
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -34,6 +34,10 @@ func main() {
 				&cli.StringFlag{
 					Name:    "logLevel",
 					Aliases: []string{"ll"},
+				},
+				&cli.StringFlag{
+					Name:    "listenEvents",
+					Aliases: []string{"le"},
 				},
 			},
 		},
